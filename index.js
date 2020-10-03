@@ -1,10 +1,10 @@
 require('dotenv').config();
-const { ElasticBeanstalk, EC2 } = require('aws-sdk');
+const { ElasticBeanstalk, EC2, EC2MetadataCredentials } = require('aws-sdk');
 const fs = require('fs');
 
 const clientConfig = {
     region: process.env.AWS_REGION,
-    credentials: {
+    credentials: process.env.AWS_CRED_TYPE === "ec2_metadata" ? new EC2MetadataCredentials() : {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     }
