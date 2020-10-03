@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { ElasticBeanstalk, EC2, EC2MetadataCredentials } = require('aws-sdk');
 const fs = require('fs');
+const { flatten } = require('lodash');
 
 const clientConfig = {
     region: process.env.AWS_REGION,
@@ -21,7 +22,9 @@ const update_target_file = (eb, ec2, updateRate) => {
                 return Id;
             })
         }).promise().then(({ Reservations }) => {
-            const ips = Reservations[0].Instances.map(({ PrivateIpAddress }) => PrivateIpAddress);
+            const ips = flatten(Reservations.map(({ Instances }) => {
+                return Instances.map(({ PrivateIpAddress }) => PrivateIpAddress);
+            }));
 
             fs.writeFileSync(process.env.OUT_FILE_PATH, JSON.stringify([
                 {
