@@ -14,22 +14,33 @@ const eb = new ElasticBeanstalk(clientConfig);
 
 const ec2 = new EC2(clientConfig);
 
-eb.describeEnvironmentResources({ EnvironmentName: process.env.EB_ENV_NAME }).promise().then(({ EnvironmentResources }) => {
-    ec2.describeInstances({
-        InstanceIds: EnvironmentResources.Instances.map(({ Id }) => {
-            return Id;
-        })
-    }).promise().then(({ Reservations }) => {
-        const ips = Reservations[0].Instances.map(({ PrivateIpAddress }) => PrivateIpAddress);
+const update_target_file = (eb, ec2, updateRate) => {
+    eb.describeEnvironmentResources({ EnvironmentName: process.env.EB_ENV_NAME }).promise().then(({ EnvironmentResources }) => {
+        ec2.describeInstances({
+            InstanceIds: EnvironmentResources.Instances.map(({ Id }) => {
+                return Id;
+            })
+        }).promise().then(({ Reservations }) => {
+            const ips = Reservations[0].Instances.map(({ PrivateIpAddress }) => PrivateIpAddress);
 
-        fs.writeFileSync(process.env.OUT_FILE_PATH, JSON.stringify([
-            {
-                "targets": ips.map((ip) => `${ip}:9209`),
-                "scrape_interval": "2s",
-                "scrape_timeout": "1s",
-                "metrics_path": "/metrics",
-                "scheme": "http"
+            fs.writeFileSync(process.env.OUT_FILE_PATH, JSON.stringify([
+                {
+                    "targets": ips.map((ip) => `${ip}:9209`),
+                    "scrape_interval": "2s",
+                    "scrape_timeout": "1s",
+                    "metrics_path": "/metrics",
+                    "scheme": "http"
+                }
+            ]));
+
+            if (updateRate) {
+                setTimeout(() => {
+                    update_target_file(eb, ec2, updateRate);
+                }, updateRate * 1000);
             }
-        ]));
-    });
-})
+        });
+    })
+}
+
+const updateRate = isNaN(process.env.UPDATE_RATE) ? 0 : parseInt(process.env.UPDATE_RATE);
+update_target_file(eb, ec2, updateRate);
