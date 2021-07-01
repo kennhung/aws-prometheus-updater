@@ -28,11 +28,7 @@ const update_target_file = (eb, ec2, updateRate) => {
 
             fs.writeFileSync(process.env.OUT_FILE_PATH, JSON.stringify([
                 {
-                    "targets": ips.map((ip) => `${ip}:9209`),
-                    "scrape_interval": "2s",
-                    "scrape_timeout": "1s",
-                    "metrics_path": "/metrics",
-                    "scheme": "http"
+                    "targets": ips.map((ip) => `${ip}:9209`)
                 }
             ]));
 
