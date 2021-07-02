@@ -30,7 +30,7 @@ const update_target_file = (eb, ec2, updateRate) => {
                 {
                     "targets": ips.map((ip) => `${ip}:9209`)
                 }
-            ]));
+            ]) + '\n');
 
             if (updateRate) {
                 setTimeout(() => {
