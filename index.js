@@ -1,5 +1,6 @@
 require('dotenv').config();
-const { ElasticBeanstalk, EC2, EC2MetadataCredentials } = require('aws-sdk');
+
+const { ELBv2, EC2MetadataCredentials } = require('aws-sdk');
 const fs = require('fs');
 const { flatten } = require('lodash');
 
@@ -11,35 +12,43 @@ const clientConfig = {
     }
 }
 
-const eb = new ElasticBeanstalk(clientConfig);
+const elbv2 = new ELBv2(clientConfig);
 
-const ec2 = new EC2(clientConfig);
 
-const update_target_file = (eb, ec2, updateRate) => {
-    eb.describeEnvironmentResources({ EnvironmentName: process.env.EB_ENV_NAME }).promise().then(({ EnvironmentResources }) => {
-        ec2.describeInstances({
-            InstanceIds: EnvironmentResources.Instances.map(({ Id }) => {
-                return Id;
-            })
-        }).promise().then(({ Reservations }) => {
-            const ips = flatten(Reservations.map(({ Instances }) => {
-                return Instances.map(({ PrivateIpAddress }) => PrivateIpAddress);
-            }));
+const run = async (elbv2, targetGroupArn, outFilePath, updateRate) => {
+    const result = await elbv2.describeTargetHealth({ TargetGroupArn: targetGroupArn }).promise();
 
-            fs.writeFileSync(process.env.OUT_FILE_PATH, JSON.stringify([
-                {
-                    "targets": ips.map((ip) => `${ip}:9209`)
-                }
-            ]) + '\n');
-
-            if (updateRate) {
-                setTimeout(() => {
-                    update_target_file(eb, ec2, updateRate);
-                }, updateRate * 1000);
-            }
+    if (result.TargetHealthDescriptions) {
+        const targets = result.TargetHealthDescriptions.map(({ Target: { Id, Port } }) => {
+            return `${Id}:${Port}`;
         });
-    })
+
+        fs.writeFileSync(outFilePath, JSON.stringify([
+            {
+                "targets": targets
+            }
+        ]) + '\n');
+    }
+
+    if (updateRate) {
+        setTimeout(() => {
+            run(elbv2, targetGroupArn, outFilePath, updateRate);
+        }, updateRate * 1000);
+    }
+}
+
+const targetGroupArn = process.env.TARGET_GROUP_ARN;
+if (!targetGroupArn) {
+    console.error("env:`TARGET_GROUP_ARN` is required");
+    process.exit(1);
+}
+
+const outFilePath = process.env.OUT_FILE_PATH;
+if (!outFilePath) {
+    console.error("env:`OUT_FILE_PATH` is required");
+    process.exit(1);
 }
 
 const updateRate = isNaN(process.env.UPDATE_RATE) ? 0 : parseInt(process.env.UPDATE_RATE);
-update_target_file(eb, ec2, updateRate);
+
+run(elbv2, targetGroupArn, outFilePath, updateRate);
