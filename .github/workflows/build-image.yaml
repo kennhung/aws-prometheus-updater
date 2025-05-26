@@ -34,7 +34,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,enable=true,prefix=sha-${{ matrix.arch }}-,suffix=,format=short
+            type=sha,enable=true,prefix=sha-,suffix=,format=short
 
       - name: Build and push Docker image (${{ matrix.arch }})
         id: push
